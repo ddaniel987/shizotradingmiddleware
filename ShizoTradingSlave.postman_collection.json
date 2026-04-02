@@ -1,0 +1,118 @@
+{
+  "info": {
+    "name": "ShizoTradingSlave",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:6969"
+    }
+  ],
+  "item": [
+    {
+      "name": "Order - Place",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/master/order/place",
+          "host": ["{{baseUrl}}"],
+          "path": ["master", "order", "place"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"order_type\": \"MARKET\",\n  \"margin_mode\": \"isolated\",\n  \"symbol\": \"USUAL-USDT\",\n  \"order_side\": \"SELL\",\n  \"position_side\": \"net\",\n  \"reduce_only\": false,\n  \"tp_sl\": {\n    \"trigger_price_type\": \"last\",\n    \"tp_trigger_price\": \"0.01082\",\n    \"tp_order_type\": \"market\",\n    \"tp_order_price\": \"\",\n    \"sl_trigger_price\": \"0.02029\",\n    \"sl_order_type\": \"market\",\n    \"sl_order_price\": \"\"\n  },\n  \"quantity\": \"156\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Order - Close Position",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/master/order/close_position",
+          "host": ["{{baseUrl}}"],
+          "path": ["master", "order", "close_position"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"symbol\": \"USUAL-USDT\",\n  \"margin_mode\": \"ISOLATED\",\n  \"position_side\": \"net\"\n}"
+        }
+      }
+    },
+    {
+      "name": "TP/SL - Amend",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/master/tp_sl/amend",
+          "host": ["{{baseUrl}}"],
+          "path": ["master", "tp_sl", "amend"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": 10007348564,\n  \"symbol\": \"USUAL-USDT\",\n  \"trigger_price_type\": \"LAST\",\n  \"tp_order_type\": \"MARKET\",\n  \"sl_order_type\": \"MARKET\",\n  \"tp_order_price\": \"\",\n  \"sl_order_price\": \"\",\n  \"tp_sl_quantity_type\": \"partial\",\n  \"tp_trigger_price\": 0.01147,\n  \"quantity\": \"156.000000000000000000\",\n  \"sl_trigger_price\": \"0.020290000000000000\"\n}"
+        }
+      }
+    },
+    {
+      "name": "TP/SL - Cancel",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/master/tp_sl/cancel",
+          "host": ["{{baseUrl}}"],
+          "path": ["master", "tp_sl", "cancel"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"order_id\": 10007348871,\n  \"symbol\": \"USUAL-USDT\"\n}"
+        }
+      }
+    },
+    {
+      "name": "TP/SL - Place",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/master/tp_sl/place",
+          "host": ["{{baseUrl}}"],
+          "path": ["master", "tp_sl", "place"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"margin_mode\": \"isolated\",\n  \"order_side\": \"BUY\",\n  \"position_side\": \"net\",\n  \"quantity\": \"156\",\n  \"reduce_only\": true,\n  \"sl_order_price\": \"\",\n  \"sl_order_type\": \"MARKET\",\n  \"symbol\": \"USUAL-USDT\",\n  \"tp_order_price\": \"\",\n  \"tp_sl_quantity_type\": \"position\",\n  \"tp_order_type\": \"MARKET\",\n  \"trigger_price_type\": \"LAST\",\n  \"tp_trigger_price\": 0.00984,\n  \"sl_trigger_price\": \"\"\n}"
+        }
+      }
+    },
+    {
+      "name": "WebSocket - Live Updates",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "ws://localhost:6969",
+          "protocol": "ws",
+          "host": ["localhost"],
+          "port": "6969"
+        },
+        "description": "WebSocket connection for live trade updates. Connect to ws://localhost:6969 to receive real-time JSON broadcasts for all events: newOrder, orderClosed, tpSlPlaced, tpSlAmended, tpSlCancelled.\n\nExample message:\n{\n  \"event\": \"newOrder\",\n  \"symbol\": \"USUAL-USDT\",\n  \"side\": \"SELL\",\n  \"qty\": \"156\",\n  \"orderType\": \"MARKET\",\n  \"tp\": \"0.01082\",\n  \"sl\": \"0.02029\",\n  \"timestamp\": 1743552000000\n}"
+      }
+    }
+  ]
+}
