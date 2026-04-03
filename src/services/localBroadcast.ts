@@ -1,7 +1,7 @@
 import WebSocket, { WebSocketServer } from "ws";
 import { log } from "../utils/logger";
 
-const PORT = Number(process.env.LOCAL_WS_PORT ?? 8080);
+const PORT = Number(process.env.LOCAL_WS_PORT ?? 6969);
 
 let wss: WebSocketServer | null = null;
 
