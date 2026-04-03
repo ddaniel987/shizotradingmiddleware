@@ -1,3 +1,4 @@
-import { startServer } from "./server/express";
+import "dotenv/config";
+import { startBlofinWS } from "./services/websocket";
 
-startServer();
+startBlofinWS();

@@ -14,6 +14,8 @@ class OrderService {
     position_side: string;
     reduce_only: boolean;
     quantity: string;
+    leverage: string;
+    create_time: string;
     tp_sl?: {
       trigger_price_type: string;
       tp_trigger_price: string;
@@ -46,6 +48,8 @@ class OrderService {
       position_side: body.position_side,
       reduce_only: body.reduce_only,
       quantity: body.quantity,
+      leverage: body.leverage,
+      create_time: body.create_time,
       status: "open",
       tp_sl: tpSl,
     };
@@ -60,6 +64,8 @@ class OrderService {
       order.order_side,
       order.quantity,
       order.order_type,
+      order.leverage,
+      order.create_time,
       tpSl?.tp_trigger_price,
       tpSl?.sl_trigger_price,
     );
@@ -81,7 +87,8 @@ class OrderService {
     order.status = "closed";
     order.tp_sl = null;
     log.order("CLOSED", order.symbol, `#${order.id}`);
-    telegram.orderClosed(order.symbol);
+    telegram.orderClosed(order.symbol, order.order_side, order.quantity, order.leverage);
+    this.pruneClosedOrders();
     return order;
   }
 
@@ -121,7 +128,7 @@ class OrderService {
     };
 
     log.order("TP/SL PLACED", order.symbol, `#${order.id} TP=${order.tp_sl.tp_trigger_price} SL=${order.tp_sl.sl_trigger_price}`);
-    telegram.tpSlPlaced(order.symbol, order.tp_sl.tp_trigger_price, order.tp_sl.sl_trigger_price);
+    telegram.tpSlPlaced(order.symbol, order.order_side, order.quantity, order.leverage, order.tp_sl.tp_trigger_price, order.tp_sl.sl_trigger_price);
     return order;
   }
 
@@ -159,7 +166,7 @@ class OrderService {
     order.tp_sl.quantity = body.quantity;
 
     log.order("TP/SL AMENDED", order.symbol, `#${order.id} TP: ${oldTp} → ${order.tp_sl.tp_trigger_price} | SL: ${oldSl} → ${order.tp_sl.sl_trigger_price}`);
-    telegram.tpSlAmended(order.symbol, order.tp_sl.tp_trigger_price, order.tp_sl.sl_trigger_price);
+    telegram.tpSlAmended(order.symbol, order.order_side, order.quantity, order.leverage, oldTp, oldSl, order.tp_sl.tp_trigger_price, order.tp_sl.sl_trigger_price);
     return order;
   }
 
@@ -174,10 +181,29 @@ class OrderService {
       return null;
     }
 
+    const lastTp = order.tp_sl.tp_trigger_price;
+    const lastSl = order.tp_sl.sl_trigger_price;
     log.order("TP/SL CANCELED", order.symbol, `#${order.id}`);
-    telegram.tpSlCancelled(order.symbol);
+    telegram.tpSlCancelled(order.symbol, order.order_side, order.quantity, order.leverage, lastTp, lastSl);
     order.tp_sl = null;
     return order;
+  }
+
+  private pruneClosedOrders(maxClosed = 200): void {
+    let closedCount = 0;
+    for (const o of this.orders) {
+      if (o.status === "closed") closedCount++;
+    }
+    if (closedCount <= maxClosed) return;
+    const toRemove = closedCount - maxClosed;
+    let removed = 0;
+    this.orders = this.orders.filter((o) => {
+      if (o.status === "closed" && removed < toRemove) {
+        removed++;
+        return false;
+      }
+      return true;
+    });
   }
 
   private findOpenBySymbol(symbol: string): Order | undefined {

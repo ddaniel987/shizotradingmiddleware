@@ -19,6 +19,8 @@ export interface Order {
   position_side: string;
   reduce_only: boolean;
   quantity: string;
+  leverage: string;
+  create_time: string;
   status: "open" | "closed";
   tp_sl: TpSl | null;
 }
