@@ -2,6 +2,7 @@ import WebSocket from "ws";
 import crypto from "crypto";
 import { log } from "../utils/logger";
 import { orderService } from "./orderService";
+import { broadcast } from "./localBroadcast";
 
 const WS_URL = "wss://openapi.blofin.com/ws/private";
 const PING_INTERVAL_MS = 25_000;
@@ -263,8 +264,10 @@ function connect(): void {
 
     try {
       if (msg.arg?.channel === "orders" && Array.isArray(msg.data)) {
+        broadcast(data);
         handleOrders(msg.data);
       } else if (msg.arg?.channel === "orders-algo" && Array.isArray(msg.data)) {
+        broadcast(data);
         handleAlgoOrders(msg.data);
       }
     } catch (err: any) {
