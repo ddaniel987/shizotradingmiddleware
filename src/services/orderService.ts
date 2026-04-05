@@ -6,7 +6,7 @@ class OrderService {
   private orders: Order[] = [];
   private nextOrderId = 1;
 
-  placeOrder(body: {
+  async placeOrder(body: {
     order_type: string;
     margin_mode: string;
     symbol: string;
@@ -25,7 +25,7 @@ class OrderService {
       sl_order_type: string;
       sl_order_price: string;
     };
-  }): Order {
+  }): Promise<Order> {
     let tpSl: TpSl | null = null;
     if (body.tp_sl) {
       tpSl = {
@@ -59,7 +59,7 @@ class OrderService {
     if (tpSl) {
       log.info("Order", `  TP: ${tpSl.tp_trigger_price} | SL: ${tpSl.sl_trigger_price}`);
     }
-    telegram.newOrder(
+    const messageId = await telegram.newOrder(
       order.symbol,
       order.order_side,
       order.quantity,
@@ -69,14 +69,17 @@ class OrderService {
       tpSl?.tp_trigger_price,
       tpSl?.sl_trigger_price,
     );
+    if (messageId) {
+      order.telegram_message_id = messageId;
+    }
     return order;
   }
 
-  closePosition(body: {
+  async closePosition(body: {
     symbol: string;
     margin_mode: string;
     position_side: string;
-  }): Order | null {
+  }): Promise<Order | null> {
     const order = this.findOpenBySymbol(body.symbol);
 
     if (!order) {
@@ -87,12 +90,18 @@ class OrderService {
     order.status = "closed";
     order.tp_sl = null;
     log.order("CLOSED", order.symbol, `#${order.id}`);
-    telegram.orderClosed(order.symbol, order.order_side, order.quantity, order.leverage);
+    await telegram.orderClosed(
+      order.symbol,
+      order.order_side,
+      order.quantity,
+      order.leverage,
+      order.telegram_message_id,
+    );
     this.pruneClosedOrders();
     return order;
   }
 
-  placeTpSl(body: {
+  async placeTpSl(body: {
     symbol: string;
     margin_mode: string;
     order_side: string;
@@ -107,7 +116,7 @@ class OrderService {
     sl_order_type: string;
     sl_order_price: string;
     tp_sl_quantity_type: string;
-  }): Order | null {
+  }): Promise<Order | null> {
     const order = this.findOpenBySymbol(body.symbol);
 
     if (!order) {
@@ -128,11 +137,19 @@ class OrderService {
     };
 
     log.order("TP/SL PLACED", order.symbol, `#${order.id} TP=${order.tp_sl.tp_trigger_price} SL=${order.tp_sl.sl_trigger_price}`);
-    telegram.tpSlPlaced(order.symbol, order.order_side, order.quantity, order.leverage, order.tp_sl.tp_trigger_price, order.tp_sl.sl_trigger_price);
+    await telegram.tpSlPlaced(
+      order.symbol,
+      order.order_side,
+      order.quantity,
+      order.leverage,
+      order.tp_sl.tp_trigger_price,
+      order.tp_sl.sl_trigger_price,
+      order.telegram_message_id,
+    );
     return order;
   }
 
-  amendTpSl(body: {
+  async amendTpSl(body: {
     id: number;
     symbol: string;
     trigger_price_type: string;
@@ -144,7 +161,7 @@ class OrderService {
     tp_trigger_price: string | number;
     quantity: string;
     sl_trigger_price: string | number;
-  }): Order | null {
+  }): Promise<Order | null> {
     const order = this.findOpenBySymbol(body.symbol);
 
     if (!order || !order.tp_sl) {
@@ -154,26 +171,44 @@ class OrderService {
 
     const oldTp = order.tp_sl.tp_trigger_price;
     const oldSl = order.tp_sl.sl_trigger_price;
+    const newTp = String(body.tp_trigger_price);
+    const newSl = String(body.sl_trigger_price);
+    const triggersChanged = oldTp !== newTp || oldSl !== newSl;
 
     order.tp_sl.trigger_price_type = body.trigger_price_type;
-    order.tp_sl.tp_trigger_price = String(body.tp_trigger_price);
+    order.tp_sl.tp_trigger_price = newTp;
     order.tp_sl.tp_order_type = body.tp_order_type;
     order.tp_sl.tp_order_price = body.tp_order_price;
-    order.tp_sl.sl_trigger_price = String(body.sl_trigger_price);
+    order.tp_sl.sl_trigger_price = newSl;
     order.tp_sl.sl_order_type = body.sl_order_type;
     order.tp_sl.sl_order_price = body.sl_order_price;
     order.tp_sl.tp_sl_quantity_type = body.tp_sl_quantity_type;
     order.tp_sl.quantity = body.quantity;
 
+    if (!triggersChanged) {
+      log.info("TP/SL", `No trigger change for ${order.symbol}; suppressing amend notification`);
+      return order;
+    }
+
     log.order("TP/SL AMENDED", order.symbol, `#${order.id} TP: ${oldTp} → ${order.tp_sl.tp_trigger_price} | SL: ${oldSl} → ${order.tp_sl.sl_trigger_price}`);
-    telegram.tpSlAmended(order.symbol, order.order_side, order.quantity, order.leverage, oldTp, oldSl, order.tp_sl.tp_trigger_price, order.tp_sl.sl_trigger_price);
+    await telegram.tpSlAmended(
+      order.symbol,
+      order.order_side,
+      order.quantity,
+      order.leverage,
+      oldTp,
+      oldSl,
+      order.tp_sl.tp_trigger_price,
+      order.tp_sl.sl_trigger_price,
+      order.telegram_message_id,
+    );
     return order;
   }
 
-  cancelTpSl(body: {
+  async cancelTpSl(body: {
     order_id: number;
     symbol: string;
-  }): Order | null {
+  }): Promise<Order | null> {
     const order = this.findOpenBySymbol(body.symbol);
 
     if (!order || !order.tp_sl) {
@@ -184,7 +219,15 @@ class OrderService {
     const lastTp = order.tp_sl.tp_trigger_price;
     const lastSl = order.tp_sl.sl_trigger_price;
     log.order("TP/SL CANCELED", order.symbol, `#${order.id}`);
-    telegram.tpSlCancelled(order.symbol, order.order_side, order.quantity, order.leverage, lastTp, lastSl);
+    await telegram.tpSlCancelled(
+      order.symbol,
+      order.order_side,
+      order.quantity,
+      order.leverage,
+      lastTp,
+      lastSl,
+      order.telegram_message_id,
+    );
     order.tp_sl = null;
     return order;
   }

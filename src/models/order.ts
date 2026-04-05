@@ -21,6 +21,7 @@ export interface Order {
   quantity: string;
   leverage: string;
   create_time: string;
+  telegram_message_id?: number;
   status: "open" | "closed";
   tp_sl: TpSl | null;
 }

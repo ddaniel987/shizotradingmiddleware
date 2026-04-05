@@ -22,18 +22,22 @@ function formatTime(ms: string): string {
   return new Date(Number(ms)).toISOString().replace("T", " ").substring(0, 16) + " UTC";
 }
 
-async function send(text: string): Promise<void> {
+async function send(text: string, replyToMessageId?: number): Promise<number | null> {
   try {
-    await axios.post(API_URL, {
+    const res = await axios.post(API_URL, {
       chat_id: CHAT_ID,
       message_thread_id: TOPIC_ID,
       text,
       parse_mode: "HTML",
+      ...(replyToMessageId ? { reply_to_message_id: replyToMessageId } : {}),
     });
-    log.info("Telegram", "Message sent");
+    const messageId = Number(res.data?.result?.message_id);
+    log.info("Telegram", `Message sent${messageId ? ` (#${messageId})` : ""}`);
+    return Number.isFinite(messageId) ? messageId : null;
   } catch (err: any) {
     const detail = err.response?.data?.description || err.message;
     log.error("Telegram", `Failed to send message: ${detail}`);
+    return null;
   }
 }
 
@@ -47,7 +51,7 @@ export const telegram = {
     createTime: string,
     tp?: string,
     sl?: string,
-  ) {
+  ): Promise<number | null> {
     const dir = formatSide(side);
     const type = orderType === "market" ? "Market" : orderType === "limit" ? "Limit" : orderType;
     let msg = `\ud83d\ude80 <b>New Position Opened</b>\n`;
@@ -59,19 +63,19 @@ export const telegram = {
     msg += `\ud83d\uded1 SL: <code>${formatPrice(sl)}</code>\n`;
     msg += `\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n`;
     msg += `\ud83d\udd52 <i>${formatTime(createTime)}</i>`;
-    send(msg);
+    return send(msg);
   },
 
-  orderClosed(symbol: string, side: string, qty: string, leverage: string) {
+  orderClosed(symbol: string, side: string, qty: string, leverage: string, replyToMessageId?: number): Promise<number | null> {
     const dir = formatSide(side);
     let msg = `\ud83d\udd34 <b>Position Closed</b>\n`;
     msg += `\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n`;
     msg += `\ud83e\ude99 <b>${symbol}</b>  ${dir}  \u26a1${leverage}x\n`;
     msg += `\ud83d\udce6 Size: <code>${qty}</code>`;
-    send(msg);
+    return send(msg, replyToMessageId);
   },
 
-  tpSlPlaced(symbol: string, side: string, qty: string, leverage: string, tp: string, sl: string) {
+  tpSlPlaced(symbol: string, side: string, qty: string, leverage: string, tp: string, sl: string, replyToMessageId?: number): Promise<number | null> {
     const dir = formatSide(side);
     let msg = `\ud83d\udccc <b>TP/SL Set</b>\n`;
     msg += `\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n`;
@@ -80,7 +84,7 @@ export const telegram = {
     msg += `\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n`;
     msg += `\ud83d\udcb0 TP: <code>${formatPrice(tp)}</code>\n`;
     msg += `\ud83d\uded1 SL: <code>${formatPrice(sl)}</code>`;
-    send(msg);
+    return send(msg, replyToMessageId);
   },
 
   tpSlAmended(
@@ -92,7 +96,8 @@ export const telegram = {
     oldSl: string,
     newTp: string,
     newSl: string,
-  ) {
+    replyToMessageId?: number,
+  ): Promise<number | null> {
     const dir = formatSide(side);
     const tpChanged = formatPrice(oldTp) !== formatPrice(newTp);
     const slChanged = formatPrice(oldSl) !== formatPrice(newSl);
@@ -111,10 +116,10 @@ export const telegram = {
     } else {
       msg += `\ud83d\uded1 SL: <code>${formatPrice(newSl)}</code>`;
     }
-    send(msg);
+    return send(msg, replyToMessageId);
   },
 
-  tpSlCancelled(symbol: string, side: string, qty: string, leverage: string, lastTp: string, lastSl: string) {
+  tpSlCancelled(symbol: string, side: string, qty: string, leverage: string, lastTp: string, lastSl: string, replyToMessageId?: number): Promise<number | null> {
     const dir = formatSide(side);
     let msg = `\u274c <b>TP/SL Cancelled</b>\n`;
     msg += `\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n`;
@@ -122,7 +127,7 @@ export const telegram = {
     msg += `\ud83d\udce6 Size: <code>${qty}</code>\n`;
     msg += `\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n`;
     msg += `<i>Removed TP: <code>${formatPrice(lastTp)}</code>  ·  SL: <code>${formatPrice(lastSl)}</code></i>`;
-    send(msg);
+    return send(msg, replyToMessageId);
   },
 };
 

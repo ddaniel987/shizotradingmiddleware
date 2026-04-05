@@ -32,7 +32,7 @@ function trackSeen(set: Set<string>, id: string): void {
   set.add(id);
 }
 
-function handleOrders(orders: any[]): void {
+async function handleOrders(orders: any[]): Promise<void> {
   for (const order of orders) {
     const {
       orderId, state, reduceOnly, orderCategory,
@@ -51,7 +51,7 @@ function handleOrders(orders: any[]): void {
     // New opening order
     if (!seenOrders.has(orderId) && !isClosing && (state === "live" || state === "partially_filled")) {
       trackSeen(seenOrders, orderId);
-      orderService.placeOrder({
+      await orderService.placeOrder({
         order_type: orderType,
         margin_mode: marginMode,
         symbol: instId,
@@ -78,7 +78,7 @@ function handleOrders(orders: any[]): void {
     // Closing order filled
     if (state === "filled" && isClosing && !seenOrders.has(orderId)) {
       trackSeen(seenOrders, orderId);
-      orderService.closePosition({
+      await orderService.closePosition({
         symbol: instId,
         margin_mode: marginMode,
         position_side: positionSide,
@@ -87,7 +87,7 @@ function handleOrders(orders: any[]): void {
   }
 }
 
-function handleAlgoOrders(orders: any[]): void {
+async function handleAlgoOrders(orders: any[]): Promise<void> {
   for (const order of orders) {
     const {
       algoId, state, orderType,
@@ -102,7 +102,7 @@ function handleAlgoOrders(orders: any[]): void {
     if (state === "canceled") {
       if (seenAlgoOrders.has(algoId)) {
         seenAlgoOrders.delete(algoId);
-        orderService.cancelTpSl({ order_id: 0, symbol: instId });
+        await orderService.cancelTpSl({ order_id: 0, symbol: instId });
       }
       continue;
     }
@@ -129,13 +129,13 @@ function handleAlgoOrders(orders: any[]): void {
       };
 
       if (isNew) {
-        orderService.placeTpSl(tpSlBody);
+        await orderService.placeTpSl(tpSlBody);
       } else {
         const existing = orderService.getOpenOrders().find(
           (o) => o.symbol.toLowerCase() === instId.toLowerCase()
         );
         if (existing) {
-          orderService.amendTpSl({ id: existing.id, ...tpSlBody });
+          await orderService.amendTpSl({ id: existing.id, ...tpSlBody });
         }
       }
     }
@@ -212,7 +212,7 @@ function connect(): void {
     }));
   });
 
-  ws.on("message", (raw) => {
+  ws.on("message", async (raw) => {
     const data = raw.toString();
 
     if (data === "pong") {
@@ -265,10 +265,10 @@ function connect(): void {
     try {
       if (msg.arg?.channel === "orders" && Array.isArray(msg.data)) {
         broadcast(data);
-        handleOrders(msg.data);
+        await handleOrders(msg.data);
       } else if (msg.arg?.channel === "orders-algo" && Array.isArray(msg.data)) {
         broadcast(data);
-        handleAlgoOrders(msg.data);
+        await handleAlgoOrders(msg.data);
       }
     } catch (err: any) {
       log.error("WebSocket", `Handler threw: ${err.message}`);
